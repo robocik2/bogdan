@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piano with Randomly Changing Delay</title>
+    <title>Custom Sample Piano with Random Delay and LFO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -49,7 +49,7 @@
     </style>
 </head>
 <body>
-    <h1>Piano with Randomly Changing Delay</h1>
+    <h1>Custom Sample Piano with Random Delay and LFO</h1>
     <button id="startButton">Start Audio</button>
     <div id="piano"></div>
     <div id="links">
@@ -61,7 +61,7 @@
     </div>
 
     <script>
-        let synth, delay;
+        let sampler, delay, lfo;
 
         const startButton = document.getElementById('startButton');
         startButton.addEventListener('click', async () => {
@@ -69,16 +69,31 @@
             console.log('audio is ready');
             startButton.disabled = true;
             startButton.textContent = 'Audio Started';
-            initializeAudio();
+            await initializeAudio();
         });
 
-        function initializeAudio() {
-            synth = new Tone.Synth();
+        async function initializeAudio() {
+            // Create a sampler with the custom sound
+            sampler = new Tone.Sampler({
+                "C4": "sound.wav",
+            }).toDestination();
+
+            // Wait for the sample to load
+            await Tone.loaded();
+
             delay = new Tone.FeedbackDelay(0.5, 0.5);
+            lfo = new Tone.LFO({
+                frequency: 0.1,
+                min: 0,
+                max: 1000
+            }).start();
             
-            synth.chain(delay, Tone.Destination);
+            // Connect the effects
+            sampler.chain(delay, Tone.Destination);
+            lfo.connect(sampler.detune);
 
             updateDelay();
+            updateLFO();
         }
 
         const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
@@ -91,15 +106,15 @@
             piano.appendChild(key);
 
             key.addEventListener('mousedown', () => playNote(note));
-            key.addEventListener('mouseup', () => stopNote());
+            key.addEventListener('mouseup', () => stopNote(note));
         });
 
         function playNote(note) {
-            if (synth) synth.triggerAttack(note);
+            if (sampler) sampler.triggerAttack(note);
         }
 
-        function stopNote() {
-            if (synth) synth.triggerRelease();
+        function stopNote(note) {
+            if (sampler) sampler.triggerRelease(note);
         }
 
         function getRandomValue(min, max) {
@@ -118,6 +133,22 @@
             console.log(`Delay updated - Time: ${newDelayTime.toFixed(2)}s, Feedback: ${newFeedback.toFixed(2)}`);
 
             setTimeout(updateDelay, 500);  // Update every 0.5 seconds
+        }
+
+        function updateLFO() {
+            if (!lfo) return;
+
+            const newFrequency = getRandomValue(0.1, 10);  // Random LFO frequency between 0.1 and 10 Hz
+            const newMin = getRandomValue(-1200, 0);       // Random minimum detune value between -1200 and 0 cents
+            const newMax = getRandomValue(0, 1200);        // Random maximum detune value between 0 and 1200 cents
+
+            lfo.frequency.rampTo(newFrequency, 0.1);
+            lfo.min = newMin;
+            lfo.max = newMax;
+
+            console.log(`LFO updated - Frequency: ${newFrequency.toFixed(2)}Hz, Range: ${newMin.toFixed(0)} to ${newMax.toFixed(0)} cents`);
+
+            setTimeout(updateLFO, 500);  // Update every 0.5 seconds
         }
     </script>
 </body>
