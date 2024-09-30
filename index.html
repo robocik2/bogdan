@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Sample Piano with Random Delay and LFO</title>
+    <title>Complex Custom Sample Piano with Randomly Changing Effects</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -49,7 +49,7 @@
     </style>
 </head>
 <body>
-    <h1>Custom Sample Piano with Random Delay and LFO</h1>
+    <h1>Complex Custom Sample Piano with Randomly Changing Effects</h1>
     <button id="startButton">Start Audio</button>
     <div id="piano"></div>
     <div id="links">
@@ -61,7 +61,7 @@
     </div>
 
     <script>
-        let sampler, delay, lfo;
+        let sampler, vibrato, tremolo, phaser, pitchShift, reverb, feedbackDelay, autoPanner, chorus, pingPongDelay, lfo;
 
         const startButton = document.getElementById('startButton');
         startButton.addEventListener('click', async () => {
@@ -76,24 +76,35 @@
             // Create a sampler with the custom sound
             sampler = new Tone.Sampler({
                 "C4": "sound.wav",
-            }).toDestination();
+            });
 
             // Wait for the sample to load
             await Tone.loaded();
-
-            delay = new Tone.FeedbackDelay(0.5, 0.5);
+            
+            // Create complex effects chain
+            vibrato = new Tone.Vibrato();
+            tremolo = new Tone.Tremolo().start();
+            phaser = new Tone.Phaser();
+            pitchShift = new Tone.PitchShift();
+            reverb = new Tone.Reverb();
+            feedbackDelay = new Tone.FeedbackDelay();
+            autoPanner = new Tone.AutoPanner().start();
+            chorus = new Tone.Chorus().start();
+            pingPongDelay = new Tone.PingPongDelay();
             lfo = new Tone.LFO({
                 frequency: 0.1,
-                min: 0,
-                max: 1000
+                min: -1200,
+                max: 1200
             }).start();
             
-            // Connect the effects
-            sampler.chain(delay, Tone.Destination);
+            // Connect effects
+            sampler.chain(
+                vibrato, tremolo, phaser, pitchShift, reverb, feedbackDelay, 
+                autoPanner, chorus, pingPongDelay, Tone.Destination
+            );
             lfo.connect(sampler.detune);
 
-            updateDelay();
-            updateLFO();
+            updateEffects();
         }
 
         const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
@@ -117,38 +128,90 @@
             if (sampler) sampler.triggerRelease(note);
         }
 
-        function getRandomValue(min, max) {
-            return Math.random() * (max - min) + min;
+        function randomWalk(current, min, max, step) {
+            let direction = Math.random() < 0.5 ? -1 : 1;
+            let next = current + direction * step * Math.random();
+            if (next < min) return min + Math.random() * step;
+            if (next > max) return max - Math.random() * step;
+            return next;
         }
 
-        function updateDelay() {
-            if (!delay) return;
+        // Initialize effect parameters
+        let vibratoDepth = 0.5, vibratoFreq = 5;
+        let tremoloDepth = 0.5, tremoloFreq = 5;
+        let phaserFreq = 1, phaserDepth = 0.5;
+        let pitchShiftAmount = 0;
+        let reverbDecay = 1.5;
+        let delayTime = 0.5, delayFeedback = 0.5;
+        let autoPannerFreq = 1;
+        let chorusFreq = 1.5, chorusDelayTime = 2.5, chorusDepth = 0.5;
+        let pingPongDelayTime = 0.25, pingPongFeedback = 0.5;
+        let lfoFreq = 0.1, lfoMin = -1200, lfoMax = 1200;
 
-            const newDelayTime = getRandomValue(0.1, 1);  // Random delay time between 0.1 and 1 second
-            const newFeedback = getRandomValue(0, 0.9);   // Random feedback between 0 and 0.9
+        function updateEffects() {
+            if (!sampler) return;
 
-            delay.delayTime.rampTo(newDelayTime, 0.1);
-            delay.feedback.rampTo(newFeedback, 0.1);
+            // Update Vibrato
+            vibratoDepth = randomWalk(vibratoDepth, 0, 1, 0.05);
+            vibratoFreq = randomWalk(vibratoFreq, 0.1, 20, 0.5);
+            vibrato.depth.rampTo(vibratoDepth, 0.1);
+            vibrato.frequency.rampTo(vibratoFreq, 0.1);
 
-            console.log(`Delay updated - Time: ${newDelayTime.toFixed(2)}s, Feedback: ${newFeedback.toFixed(2)}`);
+            // Update Tremolo
+            tremoloDepth = randomWalk(tremoloDepth, 0, 1, 0.05);
+            tremoloFreq = randomWalk(tremoloFreq, 0.1, 20, 0.5);
+            tremolo.depth.rampTo(tremoloDepth, 0.1);
+            tremolo.frequency.rampTo(tremoloFreq, 0.1);
 
-            setTimeout(updateDelay, 500);  // Update every 0.5 seconds
-        }
+            // Update Phaser
+            phaserFreq = randomWalk(phaserFreq, 0.1, 5, 0.1);
+            phaserDepth = randomWalk(phaserDepth, 0, 1, 0.05);
+            phaser.frequency.rampTo(phaserFreq, 0.1);
+            phaser.depth.rampTo(phaserDepth, 0.1);
 
-        function updateLFO() {
-            if (!lfo) return;
+            // Update PitchShift
+            pitchShiftAmount = randomWalk(pitchShiftAmount, -12, 12, 0.5);
+            pitchShift.pitch = pitchShiftAmount;
 
-            const newFrequency = getRandomValue(0.1, 10);  // Random LFO frequency between 0.1 and 10 Hz
-            const newMin = getRandomValue(-1200, 0);       // Random minimum detune value between -1200 and 0 cents
-            const newMax = getRandomValue(0, 1200);        // Random maximum detune value between 0 and 1200 cents
+            // Update Reverb
+            reverbDecay = randomWalk(reverbDecay, 0.1, 10, 0.2);
+            reverb.decay = reverbDecay;
 
-            lfo.frequency.rampTo(newFrequency, 0.1);
-            lfo.min = newMin;
-            lfo.max = newMax;
+            // Update FeedbackDelay
+            delayTime = randomWalk(delayTime, 0.01, 1, 0.02);
+            delayFeedback = randomWalk(delayFeedback, 0, 0.99, 0.02);
+            feedbackDelay.delayTime.rampTo(delayTime, 0.1);
+            feedbackDelay.feedback.rampTo(delayFeedback, 0.1);
 
-            console.log(`LFO updated - Frequency: ${newFrequency.toFixed(2)}Hz, Range: ${newMin.toFixed(0)} to ${newMax.toFixed(0)} cents`);
+            // Update AutoPanner
+            autoPannerFreq = randomWalk(autoPannerFreq, 0.1, 10, 0.2);
+            autoPanner.frequency.rampTo(autoPannerFreq, 0.1);
 
-            setTimeout(updateLFO, 500);  // Update every 0.5 seconds
+            // Update Chorus
+            chorusFreq = randomWalk(chorusFreq, 0.1, 5, 0.1);
+            chorusDelayTime = randomWalk(chorusDelayTime, 1, 10, 0.2);
+            chorusDepth = randomWalk(chorusDepth, 0, 1, 0.05);
+            chorus.frequency.rampTo(chorusFreq, 0.1);
+            chorus.delayTime = chorusDelayTime;
+            chorus.depth = chorusDepth;
+
+            // Update PingPongDelay
+            pingPongDelayTime = randomWalk(pingPongDelayTime, 0.01, 1, 0.02);
+            pingPongFeedback = randomWalk(pingPongFeedback, 0, 0.99, 0.02);
+            pingPongDelay.delayTime.rampTo(pingPongDelayTime, 0.1);
+            pingPongDelay.feedback.rampTo(pingPongFeedback, 0.1);
+
+            // Update LFO
+            lfoFreq = randomWalk(lfoFreq, 0.1, 10, 0.2);
+            lfoMin = randomWalk(lfoMin, -2400, 0, 50);
+            lfoMax = randomWalk(lfoMax, 0, 2400, 50);
+            lfo.frequency.rampTo(lfoFreq, 0.1);
+            lfo.min = lfoMin;
+            lfo.max = lfoMax;
+
+            console.log(`Effects updated`);
+
+            requestAnimationFrame(updateEffects);
         }
     </script>
 </body>
