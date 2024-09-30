@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultra Weird Piano with Constantly Changing Complex Effects</title>
+    <title>Ultra Weird Piano with Enhanced Feedback and Random Walk</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         body {
@@ -49,7 +49,7 @@
     </style>
 </head>
 <body>
-    <h1>Ultra Weird Piano with Constantly Changing Complex Effects</h1>
+    <h1>Ultra Weird Piano with Enhanced Feedback and Random Walk</h1>
     <button id="startButton">Start Audio</button>
     <div id="piano"></div>
     <div id="links">
@@ -61,7 +61,7 @@
     </div>
 
     <script>
-        let synth, vibrato, tremolo, phaser, pitchShift, reverb, feedbackDelay, distortion, autoPanner, bitCrusher, chebyshev, chorus;
+        let synth, vibrato, tremolo, phaser, pitchShift, reverb, feedbackDelay, autoPanner, chorus, pingPongDelay;
 
         const startButton = document.getElementById('startButton');
         startButton.addEventListener('click', async () => {
@@ -94,16 +94,14 @@
             pitchShift = new Tone.PitchShift();
             reverb = new Tone.Reverb();
             feedbackDelay = new Tone.FeedbackDelay();
-            distortion = new Tone.Distortion();
             autoPanner = new Tone.AutoPanner().start();
-            bitCrusher = new Tone.BitCrusher();
-            chebyshev = new Tone.Chebyshev();
             chorus = new Tone.Chorus().start();
+            pingPongDelay = new Tone.PingPongDelay();
             
             // Connect effects
             synth.chain(
                 vibrato, tremolo, phaser, pitchShift, reverb, feedbackDelay, 
-                distortion, autoPanner, bitCrusher, chebyshev, chorus, Tone.Destination
+                autoPanner, chorus, pingPongDelay, Tone.Destination
             );
 
             updateEffects();
@@ -130,9 +128,12 @@
             if (synth) synth.triggerRelease();
         }
 
-        function smoothRandomWalk(current, min, max, step) {
-            let next = current + (Math.random() * 2 - 1) * step;
-            return Math.max(min, Math.min(max, next));
+        function randomWalk(current, min, max, step) {
+            let direction = Math.random() < 0.5 ? -1 : 1;
+            let next = current + direction * step * Math.random();
+            if (next < min) return min + Math.random() * step;
+            if (next > max) return max - Math.random() * step;
+            return next;
         }
 
         // Initialize effect parameters
@@ -142,73 +143,65 @@
         let pitchShiftAmount = 0;
         let reverbDecay = 1.5;
         let delayTime = 0.5, delayFeedback = 0.5;
-        let distortionAmount = 0.5;
         let autoPannerFreq = 1;
-        let bitCrusherBits = 4;
-        let chebyshevOrder = 1;
         let chorusFreq = 1.5, chorusDelayTime = 2.5, chorusDepth = 0.5;
+        let pingPongDelayTime = 0.25, pingPongFeedback = 0.5;
 
         function updateEffects() {
             if (!synth) return;
 
             // Update Vibrato
-            vibratoDepth = smoothRandomWalk(vibratoDepth, 0, 1, 0.01);
-            vibratoFreq = smoothRandomWalk(vibratoFreq, 0.1, 20, 0.1);
+            vibratoDepth = randomWalk(vibratoDepth, 0, 1, 0.05);
+            vibratoFreq = randomWalk(vibratoFreq, 0.1, 20, 0.5);
             vibrato.depth.rampTo(vibratoDepth, 0.1);
             vibrato.frequency.rampTo(vibratoFreq, 0.1);
 
             // Update Tremolo
-            tremoloDepth = smoothRandomWalk(tremoloDepth, 0, 1, 0.01);
-            tremoloFreq = smoothRandomWalk(tremoloFreq, 0.1, 20, 0.1);
+            tremoloDepth = randomWalk(tremoloDepth, 0, 1, 0.05);
+            tremoloFreq = randomWalk(tremoloFreq, 0.1, 20, 0.5);
             tremolo.depth.rampTo(tremoloDepth, 0.1);
             tremolo.frequency.rampTo(tremoloFreq, 0.1);
 
             // Update Phaser
-            phaserFreq = smoothRandomWalk(phaserFreq, 0.1, 5, 0.05);
-            phaserDepth = smoothRandomWalk(phaserDepth, 0, 1, 0.01);
+            phaserFreq = randomWalk(phaserFreq, 0.1, 5, 0.1);
+            phaserDepth = randomWalk(phaserDepth, 0, 1, 0.05);
             phaser.frequency.rampTo(phaserFreq, 0.1);
             phaser.depth.rampTo(phaserDepth, 0.1);
 
             // Update PitchShift
-            pitchShiftAmount = smoothRandomWalk(pitchShiftAmount, -12, 12, 0.1);
+            pitchShiftAmount = randomWalk(pitchShiftAmount, -12, 12, 0.5);
             pitchShift.pitch = pitchShiftAmount;
 
             // Update Reverb
-            reverbDecay = smoothRandomWalk(reverbDecay, 0.1, 10, 0.1);
+            reverbDecay = randomWalk(reverbDecay, 0.1, 10, 0.2);
             reverb.decay = reverbDecay;
 
             // Update FeedbackDelay
-            delayTime = smoothRandomWalk(delayTime, 0.01, 1, 0.01);
-            delayFeedback = smoothRandomWalk(delayFeedback, 0, 0.99, 0.01);
+            delayTime = randomWalk(delayTime, 0.01, 1, 0.02);
+            delayFeedback = randomWalk(delayFeedback, 0, 0.99, 0.02);
             feedbackDelay.delayTime.rampTo(delayTime, 0.1);
             feedbackDelay.feedback.rampTo(delayFeedback, 0.1);
 
-            // Update Distortion
-            distortionAmount = smoothRandomWalk(distortionAmount, 0, 1, 0.01);
-            distortion.distortion = distortionAmount;
-
             // Update AutoPanner (wobble effect)
-            autoPannerFreq = smoothRandomWalk(autoPannerFreq, 0.1, 10, 0.1);
+            autoPannerFreq = randomWalk(autoPannerFreq, 0.1, 10, 0.2);
             autoPanner.frequency.rampTo(autoPannerFreq, 0.1);
 
-            // Update BitCrusher
-            bitCrusherBits = Math.round(smoothRandomWalk(bitCrusherBits, 1, 8, 0.1));
-            bitCrusher.bits = bitCrusherBits;
-
-            // Update Chebyshev
-            chebyshevOrder = Math.round(smoothRandomWalk(chebyshevOrder, 1, 100, 1));
-            chebyshev.order = chebyshevOrder;
-
             // Update Chorus
-            chorusFreq = smoothRandomWalk(chorusFreq, 0.1, 5, 0.05);
-            chorusDelayTime = smoothRandomWalk(chorusDelayTime, 1, 10, 0.1);
-            chorusDepth = smoothRandomWalk(chorusDepth, 0, 1, 0.01);
+            chorusFreq = randomWalk(chorusFreq, 0.1, 5, 0.1);
+            chorusDelayTime = randomWalk(chorusDelayTime, 1, 10, 0.2);
+            chorusDepth = randomWalk(chorusDepth, 0, 1, 0.05);
             chorus.frequency.rampTo(chorusFreq, 0.1);
             chorus.delayTime = chorusDelayTime;
             chorus.depth = chorusDepth;
 
+            // Update PingPongDelay
+            pingPongDelayTime = randomWalk(pingPongDelayTime, 0.01, 1, 0.02);
+            pingPongFeedback = randomWalk(pingPongFeedback, 0, 0.99, 0.02);
+            pingPongDelay.delayTime.rampTo(pingPongDelayTime, 0.1);
+            pingPongDelay.feedback.rampTo(pingPongFeedback, 0.1);
+
             // Simulate tape slowdown effect
-            const playbackRate = smoothRandomWalk(synth.playbackRate || 1, 0.5, 1, 0.01);
+            const playbackRate = randomWalk(synth.playbackRate || 1, 0.5, 1, 0.01);
             synth.playbackRate = playbackRate;
 
             requestAnimationFrame(updateEffects);
