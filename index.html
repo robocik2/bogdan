@@ -73,7 +73,7 @@
         });
 
         function initializeAudio() {
-            player = new Tone.Player("sound.wav");
+            player = new Tone.Player("sound.wav").toDestination();
             delay = new Tone.FeedbackDelay(0.5, 0.5);
 
             player.chain(delay, Tone.Destination);
@@ -82,22 +82,25 @@
         }
 
         const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+        const baseNote = 'C4';  // Base note of your sample (assuming sound.wav is tuned to C4)
+        const semitoneRatios = [0, 2, 4, 5, 7, 9, 11];  // Semitone intervals relative to base note
+
         const piano = document.getElementById('piano');
 
-        notes.forEach(note => {
+        notes.forEach((note, index) => {
             const key = document.createElement('div');
             key.className = 'key';
             key.dataset.note = note;
             piano.appendChild(key);
 
-            key.addEventListener('mousedown', () => playNote());
+            key.addEventListener('mousedown', () => playNoteByPitch(index));
             key.addEventListener('mouseup', () => stopNote());
         });
 
-        function playNote() {
-            if (player) {
-                player.start();
-            }
+        function playNoteByPitch(noteIndex) {
+            const ratio = Math.pow(2, semitoneRatios[noteIndex] / 12);  // Calculate the pitch ratio
+            player.playbackRate = ratio;  // Set the playback rate to adjust the pitch
+            player.start();
         }
 
         function stopNote() {
