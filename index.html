@@ -10,15 +10,35 @@
       min-height: 100vh;
       background: #1a1a1a;
     }
+    .container {
+      text-align: center;
+    }
     canvas {
       border: 1px solid #333;
       max-width: 100%;
       cursor: none;
     }
+    button {
+      margin: 10px;
+      padding: 8px 16px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
   </style>
 </head>
 <body>
-  <canvas id="canvas"></canvas>
+  <div class="container">
+    <canvas id="canvas"></canvas>
+    <br>
+    <button onclick="startGrowth()">Start Growth</button>
+    <button onclick="resetCanvas()">Reset</button>
+  </div>
 
   <script>
     const canvas = document.getElementById('canvas');
@@ -30,6 +50,7 @@
     let imageData;
     let activePixels = new Set();
     let animationFrame;
+    let isGrowing = false;
     let mouseX = canvas.width / 2;
     let mouseY = canvas.height / 2;
     
@@ -40,42 +61,25 @@
       mouseY = e.clientY - rect.top;
     });
     
-    // Right click handler for image change
-    canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      loadRandomImage();
-    });
+    // Load placeholder image
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = "1.png";
+    
+    img.onload = function() {
+      resetCanvas();
+    };
 
-    function getRandomImageNumber() {
-      // Assuming we have images numbered 1.png to 5.png
-      return Math.floor(Math.random() * 5) + 1;
-    }
-
-    function loadRandomImage() {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = `${getRandomImageNumber()}.png`;
-      
-      img.onload = function() {
-        resetCanvas(img);
-        startGrowth();
-      };
-      
-      img.onerror = function() {
-        // If image fails to load, try another one
-        loadRandomImage();
-      };
-    }
-
-    function resetCanvas(image) {
+    function resetCanvas() {
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
+      isGrowing = false;
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const x = (canvas.width - image.width) / 2;
-      const y = (canvas.height - image.height) / 2;
-      ctx.drawImage(image, x, y);
+      const x = (canvas.width - img.width) / 2;
+      const y = (canvas.height - img.height) / 2;
+      ctx.drawImage(img, x, y);
       
       imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       
@@ -112,28 +116,38 @@
     }
 
     function startGrowth() {
-      growthAnimation();
+      if (!isGrowing) {
+        isGrowing = true;
+        growthAnimation();
+      }
     }
 
     function getGrowthDirection(x, y) {
+      // Calculate angle towards cursor
       const dx = mouseX - x;
       const dy = mouseY - y;
       const angle = Math.atan2(dy, dx);
-      const randomFactor = 0.5;
+      
+      // Add some randomness while maintaining general direction
+      const randomFactor = 0.5; // Reduce this for more cursor influence
       return angle + (Math.random() - 0.5) * randomFactor;
     }
 
     function growthAnimation() {
+      if (!isGrowing) return;
+      
       const newActivePixels = new Set();
       const data = imageData.data;
       
+      // Process each active pixel
       for (const pixelKey of activePixels) {
         const [x, y] = pixelKey.split(',').map(Number);
         const idx = (y * canvas.width + x) * 4;
         
+        // 40% chance to grow for each active pixel
         if (Math.random() < 0.4) {
           const growthAngle = getGrowthDirection(x, y);
-          const distance = 1 + Math.random();
+          const distance = 1 + Math.random(); // Varying growth distance
           
           const nx = Math.floor(x + Math.cos(growthAngle) * distance);
           const ny = Math.floor(y + Math.sin(growthAngle) * distance);
@@ -141,11 +155,13 @@
           if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
             const newIdx = (ny * canvas.width + nx) * 4;
             
+            // If target pixel is transparent
             if (data[newIdx + 3] === 0) {
-              data[newIdx] = data[idx];
-              data[newIdx + 1] = data[idx + 1];
-              data[newIdx + 2] = data[idx + 2];
-              data[newIdx + 3] = 255;
+              // Copy exact color from source pixel
+              data[newIdx] = data[idx];         // R
+              data[newIdx + 1] = data[idx + 1]; // G
+              data[newIdx + 2] = data[idx + 2]; // B
+              data[newIdx + 3] = 255;           // A
               
               newActivePixels.add(`${nx},${ny}`);
             }
@@ -153,12 +169,15 @@
         }
       }
       
+      // Update active pixels
       for (const pixel of newActivePixels) {
         activePixels.add(pixel);
       }
       
+      // Draw cursor indicator
       ctx.putImageData(imageData, 0, 0);
       
+      // Draw cursor influence area
       ctx.beginPath();
       ctx.arc(mouseX, mouseY, 5, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
@@ -166,9 +185,6 @@
       
       animationFrame = requestAnimationFrame(growthAnimation);
     }
-
-    // Start with first random image
-    loadRandomImage();
   </script>
 </body>
 </html>
