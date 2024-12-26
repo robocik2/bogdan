@@ -8,7 +8,7 @@
       overflow: hidden;
     }
     body {
-      transition: background-color 1s ease;
+      background: #1a1a1a;
     }
     canvas {
       position: fixed;
@@ -30,6 +30,7 @@
       canvas.height = window.innerHeight;
     }
     
+    // Initial size and resize handling
     resizeCanvas();
     window.addEventListener('resize', () => {
       resizeCanvas();
@@ -45,47 +46,6 @@
     let mouseX = canvas.width / 2;
     let mouseY = canvas.height / 2;
     let currentImage = null;
-
-    // Function to get dominant color from image
-    function getDominantColor(image) {
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCanvas.width = image.width;
-      tempCanvas.height = image.height;
-      tempCtx.drawImage(image, 0, 0);
-      
-      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-      const data = imageData.data;
-      
-      let colorCounts = {};
-      let maxCount = 0;
-      let dominantColor = { r: 0, g: 0, b: 0 };
-      
-      // Sample every 10th pixel for performance
-      for (let i = 0; i < data.length; i += 40) {
-        if (data[i + 3] > 128) { // Check if pixel is not too transparent
-          const rgb = `${data[i]},${data[i + 1]},${data[i + 2]}`;
-          colorCounts[rgb] = (colorCounts[rgb] || 0) + 1;
-          
-          if (colorCounts[rgb] > maxCount) {
-            maxCount = colorCounts[rgb];
-            dominantColor = { r: data[i], g: data[i + 1], b: data[i + 2] };
-          }
-        }
-      }
-      
-      return dominantColor;
-    }
-
-    // Function to create complementary background color
-    function getBackgroundColor(dominantColor) {
-      const darkenFactor = 0.15; // Make background darker
-      return {
-        r: Math.floor(dominantColor.r * darkenFactor),
-        g: Math.floor(dominantColor.g * darkenFactor),
-        b: Math.floor(dominantColor.b * darkenFactor)
-      };
-    }
     
     canvas.addEventListener('mousemove', (e) => {
       mouseX = e.clientX;
@@ -108,11 +68,6 @@
       
       img.onload = function() {
         currentImage = img;
-        // Set background color based on image
-        const dominantColor = getDominantColor(img);
-        const bgColor = getBackgroundColor(dominantColor);
-        document.body.style.backgroundColor = `rgb(${bgColor.r}, ${bgColor.g}, ${bgColor.b})`;
-        
         resetCanvas(img);
         startGrowth();
       };
@@ -129,9 +84,11 @@
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
+      // Center the 300x300 image
       const x = (canvas.width - 300) / 2;
       const y = (canvas.height - 300) / 2;
       
+      // Draw image scaled to 300x300
       ctx.drawImage(image, x, y, 300, 300);
       
       imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -176,7 +133,7 @@
       const dx = mouseX - x;
       const dy = mouseY - y;
       const angle = Math.atan2(dy, dx);
-      const randomFactor = 0.8; // Increased randomness for more organic growth
+      const randomFactor = 0.5;
       return angle + (Math.random() - 0.5) * randomFactor;
     }
 
@@ -190,28 +147,21 @@
         
         if (Math.random() < 0.4) {
           const growthAngle = getGrowthDirection(x, y);
-          // Increased growth distance for larger brushes
-          const distance = 2 + Math.random() * 3;
+          const distance = 1 + Math.random();
           
-          // Create multiple pixels per growth step for thicker brush
-          for (let i = 0; i < 5; i++) {
-            const spread = Math.random() * Math.PI * 2;
-            const spreadDistance = Math.random() * 5; // Brush size
+          const nx = Math.floor(x + Math.cos(growthAngle) * distance);
+          const ny = Math.floor(y + Math.sin(growthAngle) * distance);
+          
+          if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
+            const newIdx = (ny * canvas.width + nx) * 4;
             
-            const nx = Math.floor(x + Math.cos(growthAngle + spread) * (distance + spreadDistance));
-            const ny = Math.floor(y + Math.sin(growthAngle + spread) * (distance + spreadDistance));
-            
-            if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
-              const newIdx = (ny * canvas.width + nx) * 4;
+            if (data[newIdx + 3] === 0) {
+              data[newIdx] = data[idx];
+              data[newIdx + 1] = data[idx + 1];
+              data[newIdx + 2] = data[idx + 2];
+              data[newIdx + 3] = 255;
               
-              if (data[newIdx + 3] === 0) {
-                data[newIdx] = data[idx];
-                data[newIdx + 1] = data[idx + 1];
-                data[newIdx + 2] = data[idx + 2];
-                data[newIdx + 3] = 255;
-                
-                newActivePixels.add(`${nx},${ny}`);
-              }
+              newActivePixels.add(`${nx},${ny}`);
             }
           }
         }
@@ -223,11 +173,9 @@
       
       ctx.putImageData(imageData, 0, 0);
       
-      // Larger cursor indicator
       ctx.beginPath();
-      ctx.arc(mouseX, mouseY, 10, 0, Math.PI * 2);
+      ctx.arc(mouseX, mouseY, 5, 0, Math.PI * 2);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
       ctx.stroke();
       
       animationFrame = requestAnimationFrame(growthAnimation);
