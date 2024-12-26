@@ -1,131 +1,174 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Piano with Randomly Changing Delay</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background-color: #f0f0f0;
-        }
-        #piano {
-            display: flex;
-            margin-bottom: 20px;
-        }
-        .key {
-            width: 50px;
-            height: 200px;
-            border: 1px solid black;
-            margin: 0 2px;
-            background-color: white;
-            cursor: pointer;
-        }
-        .key:active {
-            background-color: #ddd;
-        }
-        #links {
-            margin-top: 20px;
-        }
-        a {
-            display: block;
-            margin: 10px 0;
-            color: #0066cc;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        #startButton {
-            margin-bottom: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-    </style>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: #1a1a1a;
+    }
+    canvas {
+      border: 1px solid #333;
+      max-width: 100%;
+      cursor: none;
+    }
+  </style>
 </head>
 <body>
-    <h1>Piano with Randomly Changing Delay</h1>
-    <button id="startButton">Start Audio</button>
-    <div id="piano"></div>
-    <div id="links">
-        <h2>Bogdan Sekalski Links</h2>
-        <a href="#" target="_blank">YouTube</a>
-        <a href="#" target="_blank">Instagram</a>
-        <a href="#" target="_blank">Spotify</a>
-        <a href="#" target="_blank">Apple Music</a>
-    </div>
+  <canvas id="canvas"></canvas>
 
-    <script>
-        let player, delay;
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = 600;
+    canvas.height = 400;
+    
+    let imageData;
+    let activePixels = new Set();
+    let animationFrame;
+    let mouseX = canvas.width / 2;
+    let mouseY = canvas.height / 2;
+    
+    // Track mouse position
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+    });
+    
+    // Right click handler for image change
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      loadRandomImage();
+    });
 
-        const startButton = document.getElementById('startButton');
-        startButton.addEventListener('click', async () => {
-            await Tone.start();
-            console.log('audio is ready');
-            startButton.disabled = true;
-            startButton.textContent = 'Audio Started';
-            initializeAudio();
-        });
+    function getRandomImageNumber() {
+      // Assuming we have images numbered 1.png to 5.png
+      return Math.floor(Math.random() * 5) + 1;
+    }
 
-        function initializeAudio() {
-            player = new Tone.Player("sound.wav").toDestination();
-            delay = new Tone.FeedbackDelay(0.5, 0.5);
+    function loadRandomImage() {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.src = `${getRandomImageNumber()}.png`;
+      
+      img.onload = function() {
+        resetCanvas(img);
+        startGrowth();
+      };
+      
+      img.onerror = function() {
+        // If image fails to load, try another one
+        loadRandomImage();
+      };
+    }
 
-            player.chain(delay, Tone.Destination);
-
-            updateDelay();
-        }
-
-        const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
-        const baseNote = 'C4';  // Base note of your sample (assuming sound.wav is tuned to C4)
-        const semitoneRatios = [0, 2, 4, 5, 7, 9, 11];  // Semitone intervals relative to base note
-
-        const piano = document.getElementById('piano');
-
-        notes.forEach((note, index) => {
-            const key = document.createElement('div');
-            key.className = 'key';
-            key.dataset.note = note;
-            piano.appendChild(key);
-
-            key.addEventListener('mousedown', () => playNoteByPitch(index));
-            key.addEventListener('mouseup', () => stopNote());
-        });
-
-        function playNoteByPitch(noteIndex) {
-            const ratio = Math.pow(2, semitoneRatios[noteIndex] / 12);  // Calculate the pitch ratio
-            player.playbackRate = ratio;  // Set the playback rate to adjust the pitch
-            player.start();
-        }
-
-        function stopNote() {
-            if (player) {
-                player.stop();
+    function resetCanvas(image) {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const x = (canvas.width - image.width) / 2;
+      const y = (canvas.height - image.height) / 2;
+      ctx.drawImage(image, x, y);
+      
+      imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      
+      activePixels.clear();
+      const data = imageData.data;
+      
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const idx = (y * canvas.width + x) * 4;
+          if (data[idx + 3] > 0) {
+            if (isEdgePixel(x, y, data)) {
+              activePixels.add(`${x},${y}`);
             }
+          }
         }
+      }
+    }
 
-        function getRandomValue(min, max) {
-            return Math.random() * (max - min) + min;
+    function isEdgePixel(x, y, data) {
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+      
+      for (const [dx, dy] of directions) {
+        const nx = x + dx;
+        const ny = y + dy;
+        
+        if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
+          const idx = (ny * canvas.width + nx) * 4;
+          if (data[idx + 3] === 0) {
+            return true;
+          }
         }
+      }
+      return false;
+    }
 
-        function updateDelay() {
-            if (!delay) return;
+    function startGrowth() {
+      growthAnimation();
+    }
 
-            const newDelayTime = getRandomValue(0.1, 1);  // Random delay time between 0.1 and 1 second
-            const newFeedback = getRandomValue(0, 0.9);   // Random feedback between 0 and 0.9
+    function getGrowthDirection(x, y) {
+      const dx = mouseX - x;
+      const dy = mouseY - y;
+      const angle = Math.atan2(dy, dx);
+      const randomFactor = 0.5;
+      return angle + (Math.random() - 0.5) * randomFactor;
+    }
 
-            delay.delayTime.rampTo(newDelayTime, 0.1);
-            delay.feedback.rampTo(newFeedback, 0.1);
-
-            console.log(`Delay updated - Time: ${newDelayTime.toFixed(2)}s, Feedback: ${newFeedback.toFixed(2)}`);
-
-            setTimeout(updateDelay, 500);  // Update every 0.5 seconds
+    function growthAnimation() {
+      const newActivePixels = new Set();
+      const data = imageData.data;
+      
+      for (const pixelKey of activePixels) {
+        const [x, y] = pixelKey.split(',').map(Number);
+        const idx = (y * canvas.width + x) * 4;
+        
+        if (Math.random() < 0.4) {
+          const growthAngle = getGrowthDirection(x, y);
+          const distance = 1 + Math.random();
+          
+          const nx = Math.floor(x + Math.cos(growthAngle) * distance);
+          const ny = Math.floor(y + Math.sin(growthAngle) * distance);
+          
+          if (nx >= 0 && nx < canvas.width && ny >= 0 && ny < canvas.height) {
+            const newIdx = (ny * canvas.width + nx) * 4;
+            
+            if (data[newIdx + 3] === 0) {
+              data[newIdx] = data[idx];
+              data[newIdx + 1] = data[idx + 1];
+              data[newIdx + 2] = data[idx + 2];
+              data[newIdx + 3] = 255;
+              
+              newActivePixels.add(`${nx},${ny}`);
+            }
+          }
         }
-    </script>
+      }
+      
+      for (const pixel of newActivePixels) {
+        activePixels.add(pixel);
+      }
+      
+      ctx.putImageData(imageData, 0, 0);
+      
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, 5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.stroke();
+      
+      animationFrame = requestAnimationFrame(growthAnimation);
+    }
+
+    // Start with first random image
+    loadRandomImage();
+  </script>
 </body>
 </html>
